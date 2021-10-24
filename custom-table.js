@@ -209,11 +209,6 @@ class CustomTable extends LitElement {
                             table {
                                 border-collapse: collapse;
                             }
-                            /*
-                            table tbody:last-child {
-                                border-top: .1rem solid var(--primary-text-color);
-                            }
-                            */
                         `
                         : ''
                 }
