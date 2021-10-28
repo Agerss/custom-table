@@ -30,19 +30,38 @@ data:                        | this is the data that will be shown in the card/t
                 excludeRows: | the given index (index starts at 1) of the rows will be excluded from this styling.
         example2:
             title: 'header2'
-    values:                                  | the values of the headers can be a string|text or data from a sensor.
-        - example1:  'first value of the first header'
-          example2:  'first value of the second header'
-        - example1:  'second value of the first header'
-          example2:  'second value of the second header'
-        - repeat:                            | if there are repetitive values it a number in it, it can be looped with this. 
-            start:                           | index of the starting number (example: 0, 1 or 5. it depends on where you want to start), must be lower than the `end`.
-            end:                             | index of the ending number (example: 6, 7 or 10. it depends on where you want to end), must be higher than the `start`.
-            skip:                            | the number between `start` and `end` you want to exclude for the loop.
-            paddingNumber:                   | if the `end` value is for example `10` it is 2 digits, so if the variable needs to be 01, 02, 03, etc. this needs to be set to 2 (if the index is 10 or higher it will not longer apply, but if this is set to 3 it will apply to the 10 to, so 010 but does not apply to 100 then), if it needs to be like 1, 2, 3, etc. this can be 0.
-            paddingCharacter:                | this is the character, which will be placed before the index, if `paddingNumber` is higher than 0. example: 01, 02, 03, etc.
-          example1: someSensorName{repeat}   | the variable needs to be in the sensor data for it to apply, the variable it needs to have is `{repeat}`, it does not matter if it start or end or is in between.
-          example2: someSensorName{repeat}_2 | same applies to the other header values. if it does not have the `{repeat}` in it, it does not replace this with the index.
+    values:                                   | the values of the headers can be a string|text or data from a sensor.
+        - example1:                           | this can be a static value or sensor data.
+          example2:                           | this can be a static value or sensor data.
+
+        - repeat:                             | if there are repetitive/repeat values, this will add more values to the card (based on the amount from the `start` and `end` value). See: Card example #5
+            variable:                         | this is needed to bind the increment (repeat) value to the variable. 
+            start:                            | index of the starting number (example: 0, 1 or 5. it depends on where you want to start), must be lower than the `end`.
+            end:                              | index of the ending number (example: 6, 7 or 10. it depends on where you want to end), must be higher than the `start`.
+            skip:                             | the number between `start` and `end` you want to exclude for the loop.
+            paddingNumber:                    | if the `end` value is for example `10` it is 2 digits, so if the variable needs to be 01, 02, 03, etc. this needs to be set to 2 (if the index is 10 or higher it will not longer apply, but if this is set to 3 it will apply to the 10 to, so 010 but does not apply to 100 then), if it needs to be like 1, 2, 3, etc. this can be 0.
+            paddingCharacter:                 | this is the character, which will be placed before the index, if `paddingNumber` is higher than 0. example: 01, 02, 03, etc.
+          example1: someSensorName{repeat}    | this can be a static value or sensor data, if this is a sensor data and there is a need for a repetitive/repeat pattern, the repeats or repeat can be applied. if repeats or repeat is applied the variable from the repeat must be in one or multiple values.
+          example2: someSensorName{repeat}_2  | this can be a static value or sensor data, if this is a sensor data and there is a need for a repetitive/repeat pattern, the repeats or repeat can be applied. if repeats or repeat is applied the variable from the repeat must be in one or multiple values.
+
+        - repeats:                            | if there is a need for multiple increment values this can be used. See: Card example #6
+            - repeat:                         | this is the same object as if this is for single use.
+                variable:                     | this is needed to bind the increment (repeat) value to the variable. 
+                start:                        | index of the starting number (example: 0, 1 or 5. it depends on where you want to start), must be lower than the `end`.
+                end:                          | index of the ending number (example: 6, 7 or 10. it depends on where you want to end), must be higher than the `start`.
+                skip:                         | the number between `start` and `end` you want to exclude for the loop.
+                paddingNumber:                | if the `end` value is for example `10` it is 2 digits, so if the variable needs to be 01, 02, 03, etc. this needs to be set to 2 (if the index is 10 or higher it will not longer apply, but if this is set to 3 it will apply to the 10 to, so 010 but does not apply to 100 then), if it needs to be like 1, 2, 3, etc. this can be 0.
+                paddingCharacter:             | this is the character, which will be placed before the index, if `paddingNumber` is higher than 0. example: 01, 02, 03, etc.
+            - repeat: 
+                variable:
+                start:
+                end:
+                skip:
+                paddingNumber:
+                paddingCharacter:
+          example1: someSensorName{repeat_1}  | this can be a static value or sensor data, if this is a sensor data and there is a need for a repetitive/repeat pattern, the repeats or repeat can be applied. if repeats or repeat is applied the variable from the repeat must be in one or multiple values.
+          example2: otherSensorName{repeat_2} | this can be a static value or sensor data, if this is a sensor data and there is a need for a repetitive/repeat pattern, the repeats or repeat can be applied. if repeats or repeat is applied the variable from the repeat must be in one or multiple values.
+
 ```
    
 Datatype:
@@ -75,7 +94,11 @@ data:                         | <object>                 | available: `headers`|
         example2:
             title: 'header2'
     values:                   | <array>                   | available: all headers for each item.
-        - repeat:             | <object>                  | available: `start`|`end`|`skip`|`paddingNumber`|`paddingCharacter`
+        - example1:           | <string|integer|variable> | available: sensor variable, string input, integer input.
+          example2:           | <string|integer|variable> | available: sensor variable, string input, integer input.
+    
+        - repeat:             | <object>                  | available: `variable`|`start`|`end`|`skip`|`paddingNumber`|`paddingCharacter`
+            variable:         | <string>                  | available: `any` (string)
             start:            | <integer>                 | available: `any` (integer)
             end:              | <integer>                 | available: `any` (integer) 
             skip:             | <array>                   | available: number(s) between `start` and `end`
@@ -83,6 +106,23 @@ data:                         | <object>                 | available: `headers`|
             paddingCharacter: | <string|integer>          | available: `any` (string|integer)
           example1:           | <string|integer|variable> | available: sensor variable, string input, integer input.
           example2:           | <string|integer|variable> | available: sensor variable, string input, integer input.
+
+        - repeats:                | <array>                   | available: `any` (repeat object)
+            - repeat:             | <object>                  | available: `variable`|`start`|`end`|`skip`|`paddingNumber`|`paddingCharacter`
+                variable:         | <string>                  | available: `any` (string)
+                start:            | <integer>                 | available: `any` (integer)
+                end:              | <integer>                 | available: `any` (integer) 
+                skip:             | <array>                   | available: number(s) between `start` and `end`
+                paddingNumber:    | <integer>                 | available: `any` (integer)
+                paddingCharacter: | <string|integer>          | available: `any` (string|integer)
+            - repeat:             | <object>                  | available: `variable`|`start`|`end`|`skip`|`paddingNumber`|`paddingCharacter`
+                start:            | <integer>                 | available: `any` (integer)
+                end:              | <integer>                 | available: `any` (integer) 
+                skip:             | <array>                   | available: number(s) between `start` and `end`
+                paddingNumber:    | <integer>                 | available: `any` (integer)
+                paddingCharacter: | <string|integer>          | available: `any` (string|integer)
+          example1:               | <string|integer|variable> | available: sensor variable, string input, integer input.
+          example2:               | <string|integer|variable> | available: sensor variable, string input, integer input.
 
 ```
 
@@ -323,4 +363,127 @@ Output:
 _____________________________________________
 |               |     € 15,00 |       28 °C |
 _____________________________________________
+```
+
+Card example #5:
+```
+- type: custom:custom-table
+  title: 'example #5'
+  props:
+    summary:
+        headers:    header_2,header_3
+        title:      ''
+        fontWeight: bolder
+        borders:    top
+        excludeRows:
+    styling:
+        borders: false
+        textAlign:
+            - headers:      true
+              alignHeaders: false
+              direction:    right
+    not_available_values:
+  data:
+    headers:
+        header_1:
+            title: 'header #1'
+        header_2:
+            title: 'header #2'
+            properties:
+                    prefix: '€'
+                    type: 'decimal'
+                    decimal: 2
+                    format: 'nl'
+                    excludeRows:
+        header_3:
+            title: 'header #3'
+            properties:
+                suffix: '°C'
+                type: 'decimal'
+                decimal: 0
+                format: 'nl'
+                excludeRows:
+  values:
+    - repeat:
+        variable: repeatVariableName
+        start: 1
+        end: 5
+        skip:
+        paddingNumber: 2
+        paddingCharacter: 0
+      header_1: 'Front yard {repeatVariableName}'
+      header_2: 1
+      header_3: 2
+```
+
+Output
+```
+  header #1       header #2     header #3
+   Front yard 01       € 1,00         2 °C
+   Front yard 01       € 1,00         2 °C
+   Front yard 01       € 1,00         2 °C
+   Front yard 01       € 1,00         2 °C
+   Front yard 01       € 1,00         2 °C
+_____________________________________________
+                      € 5,00         10 °C
+```
+
+Card example #6:
+```
+- type: custom:custom-table
+  title: 'example #6'
+  props:
+    summary:
+        headers: false
+    styling:
+        borders: false
+        textAlign:
+            - headers:      true
+              alignHeaders: false
+              direction:    right
+    not_available_values:
+  data:
+    headers:
+        header_1:
+            title: 'header #1'
+        header_2:
+            title: 'header #2'
+        header_3:
+            title: 'header #3'
+    values:
+        - repeats:
+            - repeat:
+                variable: repeatVariableName_1
+                start: 1
+                end: 5
+                skip:
+                paddingNumber: 2
+                paddingCharacter: 0
+            - repeat:
+                variable: repeatVariableName_2
+                start: 5
+                end: 10
+                skip:
+                paddingNumber: 2
+                paddingCharacter: 0
+            - repeat:
+                variable: repeatVariableName_3
+                start: 10
+                end: 15
+                skip:
+                paddingNumber: 2
+                paddingCharacter: 0
+          header_1: 'value: {repeatVariableName_1}'
+          header_2: 'value: {repeatVariableName_2}'
+          header_3: 'value: {repeatVariableName_3}'
+```
+
+Output
+```
+  header #1        header #2       header #3
+        value 01        value 05        value 10
+        value 02        value 06        value 11
+        value 03        value 07        value 12
+        value 04        value 08        value 13
+        value 05        value 09        value 14
 ```
