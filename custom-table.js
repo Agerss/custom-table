@@ -66,7 +66,7 @@ class CustomTable extends LitElement {
             isObject           : v => typeof v === 'object' && !['null', null, undefined].includes(v) && !Object.keys(v).includes('0'),
             isArray            : v => typeof v === 'object' && !['null', null, undefined].includes(v) && Object.keys(v).includes('0'),
             isString           : v => typeof v === 'string' && `${v}`.length > 0,
-            isNumber           : v => !isNaN(v),
+            isNumber           : v => !isNaN(v) && !this.utils.isNull(v),
             isBool             : v => typeof v === 'boolean' || v === true || v === false,
             isObjectEmpty      : v => this.utils.isObject(v) && Object.keys(v).length === 0,
             isArrayEmpty       : v => this.utils.isArray(v) && v.length === 0,
@@ -128,10 +128,16 @@ class CustomTable extends LitElement {
                     ? value.state
                     : value;
             },
-            setValueType: ({ v, props }) => {
+            setValueType: ({ v, props, index }) => {
                 if (
                     !this.utils.isObject(props)
-                    && !this.utils.isObjectEmpty(props)
+                    || this.utils.isObjectEmpty(props)
+                    || (
+                        props.hasOwnProperty('excludeRows')
+                        && this.utils.isArray(props.excludeRows)
+                        && !this.utils.isArrayEmpty(props.excludeRows)
+                        && props.excludeRows.includes(index)
+                    )
                 ) {
                     return v;
                 }
@@ -195,7 +201,237 @@ class CustomTable extends LitElement {
                     default:
                         return '';
                 }
-            }
+            },
+            arrayRange: (start, stop, excludes) => {
+                if (
+                    !this.utils.isNumber(start)
+                    || !this.utils.isNumber(stop)
+                ) {
+                    return [];
+                }
+
+                const range = [...Array(stop - start + 1).keys()]
+                    .map(x => x + start);
+
+                if (
+                    this.utils.isArray(excludes)
+                    && !this.utils.isNull(excludes)
+                    && !this.utils.isArrayEmpty(excludes)
+                ) {
+                    excludes.forEach(
+                        (excludeIndex, _) => range.indexOf(excludeIndex) !== -1
+                            ? range.splice(range.indexOf(excludeIndex), 1)
+                            : null
+                    );
+                }
+
+                return range;
+            },
+
+            fixRepeatValues: () => {
+                const funcRepeat = ({valueProps, valuePropKeys, repeatObject}) => {
+                    const repeatValues = [];
+                    if (
+                        this.utils.isObject(repeatObject)
+                        && repeatObject.hasOwnProperty('variable')
+                        && repeatObject.hasOwnProperty('start')
+                        && repeatObject.hasOwnProperty('end')
+                        && repeatObject.hasOwnProperty('skip')
+                        && repeatObject.hasOwnProperty('paddingNumber')
+                        && repeatObject.hasOwnProperty('paddingCharacter')
+                        && this.utils.isString(repeatObject.variable)
+                        && this.utils.isNumber(repeatObject.start)
+                        && this.utils.isNumber(repeatObject.end)
+                        && (
+                            this.utils.isArray(repeatObject.skip)
+                            || this.utils.isNull(repeatObject.skip)
+                        )
+                        && this.utils.isNumber(repeatObject.paddingNumber)
+                        && (
+                            this.utils.isNumber(repeatObject.paddingCharacter)
+                            || this.utils.isString(repeatObject.paddingCharacter)
+                        )
+                        && repeatObject.start < repeatObject.end
+                    ) {
+                        const hasRepeat = valuePropKeys.indexOf('repeat') !== -1;
+                        if (hasRepeat) {
+                            valuePropKeys.splice(valuePropKeys.indexOf('repeat'), 1);
+                        }
+
+                        const repeatRange = this.utils.arrayRange(
+                            repeatObject.start,
+                            repeatObject.end,
+                            repeatObject.skip
+                        );
+
+                        repeatRange.forEach(
+                            (repeatIndex, _) => {
+                                const repeatValueObject = {};
+                                // re-populate repeatValues
+                                valuePropKeys.forEach(
+                                    (valuePropKey, _) => {
+                                        let value = valueProps[valuePropKey];
+
+                                        value = this.utils.isString(value)
+                                        && `${value}`.indexOf(repeatObject.variable) !== -1
+                                            ? value.replace(
+                                                `{${repeatObject.variable}}`,
+                                                this.utils.padding(
+                                                    {
+                                                        v                : `${repeatIndex}`,
+                                                        isPrefix         : true,
+                                                        paddingNumber    : repeatObject.paddingNumber || 1,
+                                                        paddingCharacter : `${repeatObject.paddingCharacter}`,
+                                                    }
+                                                )
+                                            )
+                                            : value;
+
+                                        repeatValueObject[valuePropKey] = !this.utils.isValueNotAvailable(value)
+                                            ? this.utils.statesValue(value)
+                                            : value;
+                                    }
+                                );
+                                repeatValues.push(repeatValueObject);
+                            }
+                        );
+                    } else {
+                        valuePropKeys.forEach(
+                            (valuePropKey, _) => repeatValues[valuePropKey] = 'N/A'
+                        );
+                    }
+
+                    return repeatValues;
+                };
+
+                const funcRepeats = ({valueProps, valuePropKeys, repeatsObject}) => {
+                    let repeatValues = [];
+                    let valueProperties = Object.assign({}, valueProps);
+                    if (valuePropKeys.indexOf('repeats') !== -1) {
+                        valuePropKeys.splice(valuePropKeys.indexOf('repeats'), 1);
+                        if (
+                            this.utils.isObject(valueProperties)
+                            && valueProperties.hasOwnProperty('repeats')
+                        ) {
+                            delete valueProperties.repeats;
+                        }
+                    }
+
+                    if (
+                        this.utils.isArray(repeatsObject)
+                        && !this.utils.isArrayEmpty(repeatsObject)
+                        && !this.utils.isNull(repeatsObject)
+                    )
+                    {
+                        repeatValues = this.utils.arrayRange(
+                            repeatsObject[0].repeat.start,
+                            repeatsObject[0].repeat.end,
+                            repeatsObject[0].repeat.skip || []
+                        );
+
+                        repeatValues = repeatValues.map(
+                            (_, rowIndex) => {
+                                let   valueObject = Object.assign({}, valueProperties);
+
+                                repeatsObject.forEach(
+                                    (repeatObject, _) => {
+                                        repeatObject = this.utils.isObject(repeatObject) && repeatObject.hasOwnProperty('repeat')
+                                            ? repeatObject.repeat
+                                            : {};
+
+                                        if (
+                                            this.utils.isObject(repeatObject)
+                                            && !this.utils.isObjectEmpty(repeatObject)
+                                            && repeatObject.hasOwnProperty('variable')
+                                        ) {
+                                            const range = this.utils.arrayRange(
+                                                repeatObject.start,
+                                                repeatObject.end,
+                                                repeatObject.skip || [],
+                                            );
+
+                                            valuePropKeys.forEach(
+                                                (valueKey, _) => {
+                                                    let value = valueObject[valueKey];
+
+                                                    value = this.utils.isString(value)
+                                                    && `${value}`.indexOf(`${repeatObject.variable}`) !== -1
+                                                        ? value.replace(
+                                                            `{${repeatObject.variable}}`,
+                                                            this.utils.padding(
+                                                                {
+                                                                    v                : `${range[rowIndex]}`,
+                                                                    isPrefix         : true,
+                                                                    paddingNumber    : repeatObject.paddingNumber || 1,
+                                                                    paddingCharacter : `${repeatObject.paddingCharacter}`,
+                                                                }
+                                                            )
+                                                        )
+                                                        : value;
+
+                                                    value = !this.utils.isValueNotAvailable(value)
+                                                        ? this.utils.statesValue(value)
+                                                        : value;
+
+                                                    valueObject[valueKey] = value;
+
+                                                }
+                                            );
+
+                                        }
+
+
+                                    }
+                                );
+
+                                return valueObject;
+                            }
+                        );
+
+                    }
+
+                    return repeatValues;
+                };
+                if (this.utils.isArray(this.data.values)) {
+                    const newValues = [];
+                    this.data.values.forEach(
+                        (valueProps, _) => {
+                            if (this.utils.isObject(valueProps)) {
+                                if (valueProps.hasOwnProperty('repeats')) {
+                                    if (
+                                        this.utils.isArray(valueProps.repeats)
+                                        && !this.utils.isArrayEmpty(valueProps.repeats)
+                                    ) {
+                                        let repeatsValues = funcRepeats(
+                                            {
+                                                valueProps    : valueProps,
+                                                valuePropKeys : Object.keys(valueProps),
+                                                repeatsObject : valueProps.repeats
+                                            }
+                                        );
+                                        newValues.push(...repeatsValues);
+                                    }
+
+                                } else if (valueProps.hasOwnProperty('repeat')) {
+                                    let repeatValues = funcRepeat(
+                                        {
+                                            valueProps    : valueProps,
+                                            valuePropKeys : Object.keys(valueProps),
+                                            repeatObject  : valueProps.repeat
+                                        }
+                                    );
+                                    newValues.push(...repeatValues);
+                                } else {
+                                    newValues.push(valueProps);
+                                }
+                            }
+
+                        }
+                    );
+
+                    this.data.values = newValues;
+                }
+            },
         };
     }
 
@@ -283,105 +519,13 @@ class CustomTable extends LitElement {
             values  : data.values || {},
         };
 
-        if (this.utils.isArray(this.data.values)) {
-            const newValues = [];
-            this.data.values.forEach(
-                (valueProps, _) => {
-                    if (
-                        this.utils.isObject(valueProps)
-                        && valueProps.hasOwnProperty('repeat')
-                    ) {
-                        const keys = Object.keys(valueProps);
-                        if (
-                            this.utils.isObject(valueProps.repeat)
-                            && valueProps.repeat.hasOwnProperty('start')
-                            && valueProps.repeat.hasOwnProperty('end')
-                            && valueProps.repeat.hasOwnProperty('skip')
-                            && valueProps.repeat.hasOwnProperty('paddingNumber')
-                            && valueProps.repeat.hasOwnProperty('paddingCharacter')
-                            && this.utils.isNumber(valueProps.repeat.start)
-                            && this.utils.isNumber(valueProps.repeat.end)
-                            && this.utils.isNumber(valueProps.repeat.paddingNumber)
-                            && (this.utils.isNumber(valueProps.repeat.skip) || this.utils.isArray(valueProps.repeat.skip))
-                            && (this.utils.isString(valueProps.repeat.paddingCharacter) || this.utils.isNumber(valueProps.repeat.paddingCharacter))
-                            && valueProps.repeat.start < valueProps.repeat.end
-                        ) {
-                            const hasRepeat = keys.indexOf('repeat') !== -1;
-
-                            if (hasRepeat) {
-                                keys.splice(keys.indexOf('repeat'), 1);
-                            }
-
-                            for (let i=valueProps.repeat.start; i<=valueProps.repeat.end; i++) {
-                                const repeatObject = {};
-                                if (
-                                    (this.utils.isNumber(valueProps.repeat.skip) && valueProps.repeat.skip !== i)
-                                    || (this.utils.isArray(valueProps.repeat.skip) && !valueProps.repeat.skip.includes(i))
-                                ) {
-                                    keys.forEach(
-                                        (key, _) => {
-                                            let value = valueProps[key];
-                                            if (
-                                                this.utils.isString(value)
-                                                && `${value}`.indexOf('{repeat}') !== -1
-                                            ) {
-                                                const replaceWith = this.utils.padding(
-                                                    {
-                                                        v                : `${i}`,
-                                                        isPrefix         : true,
-                                                        paddingNumber    : valueProps.repeat.paddingNumber || 1,
-                                                        paddingCharacter : `${valueProps.repeat.paddingCharacter}`
-                                                    }
-                                                );
-
-                                                value = value.replace(/{repeat}/g, replaceWith);
-                                            } else {
-                                                value = 'N/A';
-                                            }
-
-                                            repeatObject[key] = this.utils.statesValue(value);
-                                        }
-                                    );
-                                }
-
-                                if (
-                                    this.utils.isObject(repeatObject)
-                                    && !this.utils.isObjectEmpty(repeatObject)
-                                ) {
-                                    newValues.push(repeatObject);
-                                }
-                            }
-                        } else {
-                            const notAvailableObject = {};
-                            keys.forEach(
-                                (key, _) => notAvailableObject[key] = 'N/A'
-                            );
-
-                            newValues.push(notAvailableObject);
-                        }
-                    } else {
-                        newValues.push(valueProps);
-                    }
-                }
-            );
-
-            this.data.values = newValues;
-        }
-
         this.views = {
             table   : () => {
+                this.utils.fixRepeatValues();
                 const headerKeys = Object.keys(this.data.headers);
                 this.props.summary.data = {}; // to prevent infinite sum-up.
                 const values = () => Object.values(this.data.values).map(
                     (valueObject, index) => {
-                        if (
-                            this.utils.isObject(this.props.summary)
-                            && this.props.summary.hasOwnProperty('excludeRows')
-                            && !this.utils.isArrayEmpty(this.props.summary.excludeRows)
-                            && this.props.summary.excludeRows.includes((index + 1))
-                        ) {
-                            return '';
-                        }
 
                         return html`
                             <tr>
@@ -392,7 +536,7 @@ class CustomTable extends LitElement {
                                 }
                                 ${
                                     headerKeys.map(
-                                        (key, _) => {
+                                        (key, valueIndex) => {
                                             const headerProps = this.data.headers[key];
                                             const valueProps  = headerProps.properties || {};
                                             let   value = this.utils.isObject(valueObject) && valueObject.hasOwnProperty(key)
@@ -419,13 +563,22 @@ class CustomTable extends LitElement {
                                                             };
                                                         }
 
-                                                        this.props.summary.data[key].values.push(value);
-
                                                         if (
-                                                            this.utils.isNumber(value)
-                                                            && valueIsNumeric
+                                                            this.utils.isObject(this.props.summary)
+                                                            && this.props.summary.hasOwnProperty('excludeRows')
+                                                            && (
+                                                                this.utils.isArrayEmpty(this.props.summary.excludeRows)
+                                                                || !this.props.summary.excludeRows.includes((index + 1))
+                                                            )
                                                         ) {
-                                                            this.props.summary.data[key].total = this.props.summary.data[key].total + Number(value);
+                                                            this.props.summary.data[key].values.push(value);
+    
+                                                            if (
+                                                                this.utils.isNumber(value)
+                                                                && valueIsNumeric
+                                                            ) {
+                                                                this.props.summary.data[key].total = this.props.summary.data[key].total + Number(value);
+                                                            }
                                                         }
                                                     }
                                                 } else {
@@ -438,7 +591,8 @@ class CustomTable extends LitElement {
                                                 : this.utils.setValueType(
                                                     {
                                                         v     : `${value}`,
-                                                        props : valueProps
+                                                        props : valueProps,
+                                                        index : valueIndex,
                                                     }
                                                 );
                                             
@@ -516,7 +670,7 @@ class CustomTable extends LitElement {
 
                 const summaryHeaders = this.props.summary.headers;
                 const options = Object.keys(this.data.headers).map(
-                    (header, _) => {
+                    (header, index) => {
                         let value = summaryHeaders.includes(header)
                             ? this.props.summary.data[header]
                             : '';
@@ -529,7 +683,8 @@ class CustomTable extends LitElement {
                             value = this.utils.setValueType(
                                 {
                                     v     : `${value.total}`,
-                                    props : value.props
+                                    props : value.props,
+                                    index : index,
                                 }
                             );
                         }
