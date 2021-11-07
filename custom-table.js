@@ -380,7 +380,6 @@ class CustomTable extends LitElement {
 
                                         }
 
-
                                     }
                                 );
 
@@ -431,6 +430,151 @@ class CustomTable extends LitElement {
 
                     this.data.values = newValues;
                 }
+            },
+
+            getBetweenCharacters: (
+                value,
+                startChar,
+                stopChar,
+                charactersBetween
+            ) => {
+                value = !this.utils.isUndefined(charactersBetween)
+                    ? charactersBetween
+                    : value;
+                let startPos = value.indexOf(startChar);
+                let stopPos  = value.lastIndexOf(stopChar);
+                let variables         = [];
+
+                if ([startPos, stopPos].includes(-1)) {
+                    return value;
+                }
+
+                startPos = startPos + 1;
+                stopPos  = stopPos - startPos;
+
+                charactersBetween = value.substr(startPos, stopPos);
+
+                const hasChars = ![
+                    charactersBetween.indexOf(startChar),
+                    charactersBetween.lastIndexOf(stopChar),
+                ].includes(-1);
+
+                const fromRecursion = hasChars
+                    ? this.utils.getBetweenCharacters(charactersBetween, startChar, stopChar)
+                    : charactersBetween;
+
+                this.utils.isArray(fromRecursion)
+                    ? variables.push(...fromRecursion)
+                    : variables.push(fromRecursion);
+
+                return variables;
+            },
+            getDefaultVariables: value => {
+                const stateValue = this.utils.statesValue(value);
+                if (stateValue !== value)
+                {
+                    return stateValue;
+                }
+
+                const today = new Date();
+                const defaultVariables = {
+                    year  : today.getFullYear(),
+                    month : today.getMonth() + 1,
+                    day   : today.getDate(),
+                };
+
+                return Object.keys(defaultVariables).includes(value)
+                    ? defaultVariables[value]
+                    : value;
+            },
+            calculation: value => {
+                const formula = this.utils.getBetweenCharacters(value, "{calc(", "}")[0] || '';
+                let newFormula = formula.replace(`calc(`, '');
+
+                newFormula = newFormula.substr(0, newFormula.length - 1);
+
+                let replaceVariables = this.utils.getBetweenCharacters(formula, '{', '}');
+                const replaces = {};
+                if (!this.utils.isArray(replaceVariables)) {
+                    replaceVariables = [replaceVariables];
+                }
+
+                replaceVariables.forEach(
+                    v => replaces[v] = this.utils.getDefaultVariables(v)
+                );
+
+                Object.keys(replaces).forEach(
+                    (replaceKey, _) => newFormula = newFormula.replace(
+                        `{${replaceKey}}`,
+                        replaces[replaceKey]
+                    )
+                );
+
+                const subtractions = newFormula.split('-');
+                const addingUp     = newFormula.split('+');
+
+                let total = 0;
+                if (subtractions.length > 1) {
+                    subtractions.forEach(
+                        (v, index) => {
+                            v = Number(v);
+                            total = index === 0 && total === 0
+                                ? v
+                                : Number(total) - v;
+
+                        }
+                    );
+                }
+                if (addingUp.length > 1) {
+                    addingUp.forEach(
+                        (v, index) => {
+                            v = Number(v);
+                            total = index === 0 && total === 0
+                                ? v
+                                : Number(total) - v;
+
+                        }
+                    );
+                }
+
+                return value.replace(`{${formula}}`, total);
+            },
+            stringVariables: value => {
+                if (!this.utils.isString(value)) {
+                    return value;
+                }
+
+                if (
+                    value.includes('calc(')
+                    && value.includes(')')
+                )
+                {
+                    value = this.utils.calculation(value);
+                }
+
+                if (
+                    value.includes('{')
+                    && value.includes('}')
+                ) {
+                    const characters = this.utils.getBetweenCharacters(value, '{', '}');
+                    if (this.utils.isArray(characters)) {
+                        characters.forEach(
+                            (char, _) => {
+                                const replaceValue = this.utils.getDefaultVariables(char);
+                                char               = `{${char}}`;
+
+                                if (value.includes(char)) {
+                                    value = value.replace(
+                                        char,
+                                        replaceValue
+                                    );
+                                }
+                            }
+                        );
+                    }
+                }
+
+                return value;
             },
         };
     }
@@ -577,7 +721,7 @@ class CustomTable extends LitElement {
                                                                 this.utils.isNumber(value)
                                                                 && valueIsNumeric
                                                             ) {
-                                                                this.props.summary.data[key].total = this.props.summary.data[key].total + Number(value);
+                                                                this.props.summary.data[key].total = Number(this.props.summary.data[key].total) + Number(value);
                                                             }
                                                         }
                                                     }
@@ -624,9 +768,13 @@ class CustomTable extends LitElement {
                                                 headerProps = headerProps[0];
                                             }
                                             
+                                            let title = this.utils.isObject(headerProps) && headerProps.hasOwnProperty('title')
+                                                ? headerProps.title
+                                                : `Unknown`;
+                                            
                                             return html`
                                                 <td class='header ${headerKey}'>
-                                                    ${headerProps.title}
+                                                    ${this.utils.stringVariables(title)}
                                                 </td>
                                             `;
                                         }
