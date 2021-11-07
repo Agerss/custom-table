@@ -1,6 +1,51 @@
 Custom-table
 -
 
+Variables and calculations:
+It's possible to add variables or sensor data to the header.
+
+Explain variables:
+```
+{year}            | this will be replaces with the current year  (example: 2021).
+{month}           | this will be replaces with the current month (example: 9).
+{day}             | this will be replaces with the current day   (example: 3).
+{any sensor data} | this will be replaces with the sensor data.
+{calc(...)}       | this will be replaces with the outcome of the formula (the 3 dots).
+```
+DataType:
+```
+{year}            | <integer>
+{month}           | <integer>
+{day}             | <integer>
+{any sensor data} | <string>
+{calc(...)}       | <integer>
+```
+
+`calc(...)` examples:
+```
+calc({year}-1) = 2021 - 1 = 2020
+calc({year}-5) = 2021 - 5 = 2016
+calc({sensordata}-{year}) = 2021 (sensordata) - 2021 = 0
+```
+
+Header Example:
+```
+data:
+    headers:
+        example1:
+            title: "{year} year"
+        example2:
+            title: "{calc({year}-1)} year"
+```
+
+Output:
+```
+example1: 2021 year
+example2: 2020 year
+```
+
+
+
 Explain:
 ```
 props:                       | this contains the properties that apply to the whole card.
